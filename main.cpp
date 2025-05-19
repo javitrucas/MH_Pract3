@@ -1,119 +1,76 @@
 #include <iostream>
-#include <problem.h>
-#include <random.hpp>
 #include <string>
-#include <util.h>
-#include <filesystem>
+#include <chrono>
 #include "pincrem.h"
-#include "agg.h"   // AGG
-#include "age.h"   // AGE
-#include "am.h"    // AM
-#include <chrono>  // Para medir el tiempo
+#include "randomsearch.h"
+#include "greedy.h"
+#include "localsearch.h"
+#include <random.hpp>
 
 using namespace std;
-namespace fs = std::filesystem;
+
+void printSolution(const tSolution &sol) {
+    for (size_t i = 0; i < sol.size(); ++i) {
+        cout << sol[i] << (i + 1 < sol.size() ? ", " : "");
+    }
+}
 
 int main(int argc, char *argv[]) {
-    // 1) Parámetros de entrada
-    string instance_path;
-    long int seed;
+    // Valores por defecto para prueba rápida
+    string instance = "../datos/p2p-Gnutella05.txt";
+    long seed = 42;
+    int m = 10;
+    double p_icm = 0.01;
+    int ev_icm = 20;
+    string alg = "random";
 
-    if (argc < 3) {
-        cout << "Usage: " << argv[0]
-             << " <path_to_instance_file> <seed>" << endl;
-        instance_path = "../datos_MDD/GKD-b_6_n25_m7.txt";
-        seed = 42;
-    } else {
-        instance_path = argv[1];
-        seed = atol(argv[2]);
+    if (argc >= 2) instance = argv[1];
+    if (argc >= 3) seed = stol(argv[2]);
+    if (argc >= 4) m = stoi(argv[3]);
+    if (argc >= 5) p_icm = stod(argv[4]);
+    if (argc >= 6) ev_icm = stoi(argv[5]);
+    if (argc >= 7) alg = argv[6];
+
+    if (argc < 2) {
+        cout << "[Modo prueba] Ejecutando con valores por defecto:\n";
+        cout << "  ./main " << instance << " " << seed << " " << m << " " << p_icm << " " << ev_icm << " " << alg << endl;
     }
 
-    // 2) Semilla
+    // Semilla global
     Random::seed(seed);
-    cout << "Using fixed random seed: " << seed << endl;
+    cout << "Seed: " << seed << " | m=" << m
+         << " | p=" << p_icm << " | ev=" << ev_icm
+         << " | alg=" << alg << endl;
 
-    // 3) Cargar instancia
-    cout << "Loading problem instance from: " << instance_path << endl;
+    // Cargar problema SNIMP
     ProblemIncrem problem;
-    problem.leerArchivo(instance_path);
-    cout << "Instance: " << fs::path(instance_path).stem().string() << endl;
+    problem.leerArchivo(instance);
+    problem.m = m;
+    problem.p_icm = p_icm;
+    problem.ev_icm = ev_icm;
 
-    // ------- AGG -------
-    cout << "\n*** Running AGG (Generational with Elitism) ***\n";
-    vector<AGGCrossover> aggOps = { AGGCrossover::UNIFORM, AGGCrossover::POSITION };
-    for (auto op : aggOps) {
-        AGG agg(50, 0.7, 0.1);
-        agg.setCrossoverOperator(op);
+    // Ejecutar algoritmo
+    tSolution emptySol;
+    ResultMH result(emptySol, 0.0f, 0);
 
-        cout << "\n=== AGG ("
-             << (op == AGGCrossover::UNIFORM ? "Uniform" : "Position")
-             << ") ===" << endl;
-
-        auto start = chrono::high_resolution_clock::now();
-        ResultMH res = agg.optimize(&problem, 100000);
-        auto end = chrono::high_resolution_clock::now();
-
-        cout << "Best fitness: " << res.fitness << endl;
-        cout << "Evaluations: " << res.evaluations << endl;
-        cout << "Time: " << chrono::duration<double>(end - start).count() << " s" << endl;
-        cout << "Solution: [";
-        res.printSolution();
-        cout << "]\n";
+    auto start = chrono::high_resolution_clock::now();
+    if (alg == "random") {
+        RandomSearch rs;
+        result = rs.optimize(&problem, 10000);
+    } else {
+        cerr << "Unknown algorithm: " << alg << endl;
+        return 1;
     }
+    auto end = chrono::high_resolution_clock::now();
 
-    // ------- AGE -------
-    cout << "\n*** Running AGE (Steady-State) ***\n";
-    vector<CrossoverStrategy> ageStrats = { CrossoverStrategy::UNIFORM, CrossoverStrategy::POSITION };
-    for (auto strat : ageStrats) {
-        AGE age(50, 0.1);
-        age.setCrossoverStrategy(strat);
-
-        cout << "\n=== AGE ("
-             << (strat == CrossoverStrategy::UNIFORM ? "Uniform" : "Position")
-             << ") ===" << endl;
-
-        auto start = chrono::high_resolution_clock::now();
-        ResultMH res = age.optimize(&problem, 100000);
-        auto end = chrono::high_resolution_clock::now();
-
-        cout << "Best fitness: " << res.fitness << endl;
-        cout << "Evaluations: " << res.evaluations << endl;
-        cout << "Time: " << chrono::duration<double>(end - start).count() << " s" << endl;
-        cout << "Solution: [";
-        res.printSolution();
-        cout << "]\n";
-    }
-
-    // ------- AM (Meméticos) -------
-    cout << "\n*** Running AM (Memetic Algorithms) ***\n";
-
-    vector<AMStrategy> amStrats  = { AMStrategy::All,       AMStrategy::RandomSubset,  AMStrategy::BestSubset };
-    vector<string>    amNames   = { "All (AM-1)",          "RandomSubset (AM-2)",     "BestSubset (AM-3)" };
-    vector<SearchStrategy> lsModes = { SearchStrategy::randLS, SearchStrategy::heurLS };
-    vector<string>          lsNames = { "RandLS",               "HeurLS" };
-
-    for (size_t m = 0; m < lsModes.size(); ++m) {
-        cout << "\n--- Using Local Search: " << lsNames[m] << " ---\n";
-        for (size_t i = 0; i < amStrats.size(); ++i) {
-            // popSize=50, pc=0.7, pm=0.1, pLS=0.1
-            AM am(50, 0.7, 0.1, 0.1, amStrats[i], lsModes[m]);
-
-            cout << "\n=== AM " << amNames[i]
-                 << " + " << lsNames[m]
-                 << " ===" << endl;
-
-            auto start = chrono::high_resolution_clock::now();
-            ResultMH res = am.optimize(&problem, 100000);
-            auto end = chrono::high_resolution_clock::now();
-
-            cout << "Best fitness: " << res.fitness << endl;
-            cout << "Evaluations: " << res.evaluations << endl;
-            cout << "Time: " << chrono::duration<double>(end - start).count() << " s" << endl;
-            cout << "Solution: [";
-            res.printSolution();
-            cout << "]\n";
-        }
-    }
+    // Mostrar resultados
+    cout << "Best fitness: " << result.fitness << endl;
+    cout << "Evaluations: " << result.evaluations << endl;
+    cout << "Time (s): "
+         << chrono::duration<double>(end - start).count() << endl;
+    cout << "Solution: [";
+    printSolution(result.solution);
+    cout << "]\n";
 
     return 0;
 }

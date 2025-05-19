@@ -41,10 +41,14 @@ public:
     }
     int getM() const { return m; }
 
-    // Evaluación factorada (recalcula completamente)
+    // Evaluación factorada (no usada)
     SolutionFactoringInfo* generateFactoringInfo(const tSolution &solution) override;
     void updateSolutionFactoringInfo(SolutionFactoringInfo *sol_info,
                                      const tSolution &solution,
                                      unsigned pos_change,
                                      tDomain new_value) override;
+
+private:
+    // Simulación Independent Cascade (ICM)
+    double simulateICM(const tSolution &seed_set);
 };
