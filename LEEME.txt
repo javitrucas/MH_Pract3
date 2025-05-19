@@ -1,0 +1,74 @@
+El proyecto está estructurado en varios directorios, basados en el template
+ofrecido en Prado, que agrupan el código fuente, los archivos de configuración
+y los resultados generados.
+
+1. Estructura de Directorios
+El código tiene la siguiente organización:
+src/: Contiene el código fuente del proyecto. Aquí se encuentran los ar-
+chivos principales que implementan la lógica del algoritmo de búsqueda
+local, así como las funciones auxiliares necesarias, implementadas en
+pincrem.cpp.
+inc/: Incluye los archivos de cabecera (headers) necesarios para la com-
+pilación del proyecto. Define las interfaces de las funciones implemen-
+tadas en el directorio src.
+main: Ejecutable para comprobar el funcionamiento de todos los algo-
+ritmos dado una instancia y una semilla.
+table: Ejecutable para generar los datos necesarios para rellenar las
+tablas necesarias para el análisis.
+output/: Carpeta destinada a almacenar los resultados de las ejecucio-
+nes del script tables.cpp, como las gráficas necesarias para el análisis
+del funcionamiento de los algoritmos.
+README.md: Archivo de documentación que contiene información
+sobre el proyecto, cómo instalarlo y cómo ejecutarlo. También incluye
+ejemplos de uso.
+Makefile: Script de compilación utilizado para compilar y generar el
+ejecutable del proyecto.
+build/: Carpeta que contiene los datos de las compilaciones, el make y
+los ejecutables de main y table.
+
+2. Instrucciones para Compilar el Proyecto
+Para compilar el proyecto, es necesario tener instalado un compilador de
+C++ en tu sistema. Si ya cuentas con un compilador adecuado, simplemente
+ejecuta el siguiente comando en la carpeta build/ del proyecto:
+make
+Este comando utilizará el archivo Makefile para compilar todos los ar-
+chivos fuente y generar el ejecutable del proyecto.
+
+3. Instrucciones para Ejecutar el Proyecto
+Una vez que el proyecto haya sido compilado, puedes ejecutar el programa
+generando una solución utilizando el siguiente comando:
+./main ../datos_MDD/GKD-b_21_n100_m10.txt 123
+o si quieres usar valores por defecto:
+./main
+
+4. Ejemplos de Ejecución
+Un ejemplo de ejecución en el que se utiliza una instancia de prueba;
+../datos_MDD/GKD-b_21_n100_m10.txt y la semilla 123:
+./main ../datos_MDD/GKD-b_21_n100_m10.txt 123
+El programa leerá los datos de../datos_MDD/GKD-b_21_n100_m10.txt,
+ejecutará los cuatro algoritmos, e imprimirá por pantalla los resultados.
+
+5. Instrucciones para procesar las soluciones
+./tables
+Si deseas especificar semillas personalizadas para la generación de núme-
+ros aleatorios, puedes usar:
+./tables <semilla1> <semilla2> <semilla3> <semilla4> <semilla5>
+
+6. Ejemplos de Ejecución
+Ejemplo utilizando semillas personalizadas:
+./tables 123 456 789 101 112
+Ejemplo con valores por defecto (5 semillas predefinidas):
+./tables
+
+7. Funcionamiento de tables.cpp
+El programa realiza las siguientes acciones:
+1. Procesamiento de todas las instancias: Lee todos los archivos en
+../datos_MDD/ y para cada instancia, ejecuta los cuatro algoritmos
+con cinco ejecuciones por algoritmo y por instancia
+2. Generación de estadísticas:
+- Cálculo de media, mínimo y máximo para:
+- Fitness (calidad de solución)
+- Número de evaluaciones
+- Tiempo de ejecución (segundos)
+- Comparación con mejores valores conocidos (best_fitness.txt)
+- Cálculo de desviación porcentual respecto al óptimo conocido
