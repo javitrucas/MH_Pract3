@@ -18,16 +18,14 @@ ResultMH GreedySearch::optimize(Problem* problem, int /*maxEvals*/) {
 
     for (int i = 0; i < m; ++i) {
         int best_node = -1;
-        double best_score = -1.0;
+        double best_score = numeric_limits<double>::lowest();
 
         for (int u = 0; u < (int)n; ++u) {
             if (selected[u]) continue;
 
             int d_u = inc->adj[u].size();
             int sum_deg = 0;
-            for (int v : inc->adj[u]) {
-                sum_deg += inc->adj[v].size();
-            }
+            for (int v : inc->adj[u]) sum_deg += inc->adj[v].size();
             double score = d_u + sum_deg;
 
             if (score > best_score) {

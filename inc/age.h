@@ -8,21 +8,19 @@
 #include <vector>
 
 /// Opciones de cruce para AGE
-enum class CrossoverStrategy { UNIFORM, POSITION };
+enum class CrossoverStrategy { CON_ORDEN, SIN_ORDEN };
 
 /**
- * AGE: Algoritmo Genético Estacionario con BL integrado.
+ * AGE: Algoritmo Genético Estacionario
  */
 class AGE : public MH, protected GeneticUtils {
 public:
     AGE(int popSize = 50, double pm = 0.1);
 
-    /// Establece cruce uniforme o por posición
     void setCrossoverStrategy(CrossoverStrategy strat) {
         crossoverStrategy_ = strat;
     }
 
-    /// Ejecuta hasta maxEvals evaluaciones
     virtual ResultMH optimize(Problem* problem, int maxEvals) override;
 
 private:

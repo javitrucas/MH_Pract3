@@ -8,25 +8,19 @@
 #include <vector>
 
 /// Operadores de cruce disponibles en AGG
-enum class AGGCrossover { UNIFORM, POSITION };
+enum class AGGCrossover { CON_ORDEN, SIN_ORDEN };
 
 /**
- * AGG: Algoritmo Genético Generacional elitista para MDD.
- * - Selección: torneo k=3 repetido popSize veces
- * - Cruce: con probabilidad pc_, estrategia configurable
- * - Mutación: por individuo con probabilidad pm_
- * - Reemplazo: generacional con elitismo
+ * AGG: Algoritmo Genético Generacional elitista para SNIMP.
  */
 class AGG : public MH, protected GeneticUtils {
 public:
     AGG(int popSize = 50, double pc = 0.7, double pm = 0.1);
 
-    /// Configura el operador de cruce
     void setCrossoverOperator(AGGCrossover op) {
         crossoverOp_ = op;
     }
 
-    /// Ejecuta hasta maxEvals evaluaciones
     virtual ResultMH optimize(Problem* problem, int maxEvals) override;
 
 private:

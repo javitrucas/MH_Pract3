@@ -2,115 +2,110 @@
 #include <algorithm>
 #include <random>
 
+using namespace std;
+
 AM::AM(int popSize, double pc, double pm,
        double proportion, AMStrategy strategy,
        SearchStrategy lsStrategy)
-  : popSize_(popSize)
-  , pc_(pc)
-  , pm_(pm)
-  , proportion_(proportion)
-  , strategy_(strategy)
-  , lsStrategy_(lsStrategy)
+    : popSize_(popSize),
+      pc_(pc),
+      pm_(pm),
+      proportion_(proportion),
+      strategy_(strategy),
+      crossoverOp_(AMCrossover::CON_ORDEN),
+      lsStrategy_(lsStrategy)
 { }
 
 ResultMH AM::optimize(Problem* problem, int maxEvals) {
-    // 1) Población inicial
-    std::vector<Individual> population;
+    vector<Individual> population;
     population.reserve(popSize_);
     for (int i = 0; i < popSize_; ++i) {
-        Individual ind;
-        ind.sol     = problem->createSolution();
-        ind.fitness = problem->fitness(ind.sol);
-        population.push_back(ind);
+        tSolution sol = problem->createSolution();
+        tFitness fit = problem->fitness(sol);
+        population.push_back({sol, fit});
     }
     int evals = popSize_;
 
-    // 2) Búsqueda local (misma instancia)
     LocalSearch ls(lsStrategy_);
-
     int gen = 0;
-    // 3) Bucle generacional
+
     while (evals < maxEvals) {
         ++gen;
-        // 3.1) Selección por torneo k=3
-        std::vector<Individual> parents;
-        parents.reserve(popSize_);
+
+        vector<Individual> parents;
         for (int i = 0; i < popSize_; ++i)
             parents.push_back(tournamentSelect(population, 3));
 
-        // 3.2) Cruce + mutación => hijos
-        std::vector<Individual> children;
-        children.reserve(popSize_);
-        int n          = problem->getSolutionSize();
-        int targetOnes = dynamic_cast<ProblemIncrem*>(problem)->getM();
-
+        vector<Individual> children;
         for (int i = 0; i < popSize_; i += 2) {
-            auto b1 = list2bin(parents[i  ].sol, n);
-            auto b2 = list2bin(parents[i+1].sol, n);
+            auto &p1 = parents[i];
+            auto &p2 = parents[i + 1];
 
-            if (Random::get<double>(0.0,1.0) < pc_)
-                std::tie(b1,b2) = crossoverUniformBin(b1, b2, targetOnes);
+            tSolution c1 = p1.sol, c2 = p2.sol;
+            if (Random::get<double>(0.0, 1.0) < pc_) {
+                if (crossoverOp_ == AMCrossover::CON_ORDEN)
+                    tie(c1, c2) = crossoverConOrden(p1.sol, p2.sol);
+                else
+                    tie(c1, c2) = crossoverSinOrden(p1.sol, p2.sol);
+            }
 
-            if (Random::get<double>(0.0,1.0) < pm_) mutateBin(b1);
-            if (Random::get<double>(0.0,1.0) < pm_) mutateBin(b2);
+            if (Random::get<double>(0.0, 1.0) < pm_) mutate(c1);
+            if (Random::get<double>(0.0, 1.0) < pm_) mutate(c2);
 
-            Individual c1{ bin2list(b1), problem->fitness(bin2list(b1)) };
-            Individual c2{ bin2list(b2), problem->fitness(bin2list(b2)) };
-            children.push_back(c1);
-            children.push_back(c2);
+            children.push_back({c1, problem->fitness(c1)});
+            children.push_back({c2, problem->fitness(c2)});
         }
         evals += popSize_;
 
-        // 3.3) Cada 10 generaciones: aplicar BL
+        // Aplicar Búsqueda Local cada 10 generaciones
         if (gen % 10 == 0) {
-            int numLS = std::max(1, int(proportion_ * popSize_));
+            int numLS = max(1, int(proportion_ * popSize_));
             if (strategy_ == AMStrategy::All) {
                 for (auto &ch : children) {
                     auto res = ls.optimize(problem, 20);
-                    ch.sol     = res.solution;
+                    ch.sol = res.solution;
                     ch.fitness = res.fitness;
-                    evals     += res.evaluations;
+                    evals += res.evaluations;
                 }
             } else if (strategy_ == AMStrategy::RandomSubset) {
                 Random::shuffle(children.begin(), children.end());
                 for (int i = 0; i < numLS; ++i) {
                     auto res = ls.optimize(problem, 20);
-                    children[i].sol     = res.solution;
+                    children[i].sol = res.solution;
                     children[i].fitness = res.fitness;
-                    evals               += res.evaluations;
+                    evals += res.evaluations;
                 }
-            } else { // BestSubset
-                std::nth_element(children.begin(),
-                                 children.begin() + numLS,
-                                 children.end(),
-                                 [](auto &a, auto &b){ return a.fitness < b.fitness; });
+            } else {
+                nth_element(children.begin(), children.begin() + numLS, children.end(),
+                            [](const Individual &a, const Individual &b) {
+                                return a.fitness > b.fitness;
+                            });
                 for (int i = 0; i < numLS; ++i) {
                     auto res = ls.optimize(problem, 20);
-                    children[i].sol     = res.solution;
+                    children[i].sol = res.solution;
                     children[i].fitness = res.fitness;
-                    evals               += res.evaluations;
+                    evals += res.evaluations;
                 }
             }
         }
 
-        // 3.4) Reemplazo generacional con elitismo
-        auto bestParent = *std::min_element(
-            population.begin(), population.end(),
-            [](auto &a, auto &b){ return a.fitness < b.fitness; }
-        );
-        population = std::move(children);
-        auto worstIt = std::max_element(
-            population.begin(), population.end(),
-            [](auto &a, auto &b){ return a.fitness < b.fitness; }
-        );
-        if (bestParent.fitness < worstIt->fitness)
+        // Reemplazo generacional con elitismo
+        auto bestParent = *max_element(population.begin(), population.end(),
+                                       [](const Individual &a, const Individual &b) {
+                                           return a.fitness < b.fitness;
+                                       });
+        population = move(children);
+        auto worstIt = min_element(population.begin(), population.end(),
+                                   [](const Individual &a, const Individual &b) {
+                                       return a.fitness < b.fitness;
+                                   });
+        if (bestParent.fitness > worstIt->fitness)
             *worstIt = bestParent;
     }
 
-    // 4) Devolver mejor final
-    auto best = *std::min_element(
-        population.begin(), population.end(),
-        [](auto &a, auto &b){ return a.fitness < b.fitness; }
-    );
+    auto best = *max_element(population.begin(), population.end(),
+                             [](const Individual &a, const Individual &b) {
+                                 return a.fitness < b.fitness;
+                             });
     return ResultMH(best.sol, best.fitness, evals);
 }

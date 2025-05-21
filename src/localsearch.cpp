@@ -2,10 +2,7 @@
 #include "pincrem.h"
 #include <algorithm>
 #include <unordered_set>
-#include <vector>
-#include <random>
 #include <cassert>
-#include <iostream>
 
 using namespace std;
 
@@ -26,8 +23,7 @@ ResultMH LocalSearch::optimize(Problem* problem, int maxevals) {
 
     unordered_set<int> sel(sol.begin(), sol.end()), nonSel;
     for (int i = 0; i < (int)n; ++i)
-        if (!sel.count(i))
-            nonSel.insert(i);
+        if (!sel.count(i)) nonSel.insert(i);
 
     vector<pair<int,int>> neigh;
     mt19937 rng(Random::get<int>(0, 1<<30));
@@ -40,53 +36,45 @@ ResultMH LocalSearch::optimize(Problem* problem, int maxevals) {
         for (int u : sel)
             for (int v : nonSel)
                 neigh.emplace_back(u, v);
-
         if (neigh.empty()) break;
 
         if (explorationMode == SearchStrategy::heurLS) {
-            tFitness bestFit = fit;
-            int bestU = -1, bestV = -1, bestPos = -1;
+            tFitness bestFit = numeric_limits<tFitness>::lowest();
+            int bestU=-1, bestV=-1, bestPos=-1;
 
-            for (auto [u, v] : neigh) {
+            for (auto [u,v] : neigh) {
                 if (evals >= maxevals) break;
-                int pos = posOf[u];
-                assert(pos >= 0);
+                int pos = posOf[u]; assert(pos>=0);
                 sol[pos] = v;
                 tFitness cand = problem->fitness(sol);
                 ++evals;
                 sol[pos] = u;
-
-                if (cand < bestFit) {
-                    bestFit = cand;
-                    bestU = u; bestV = v; bestPos = pos;
+                if (cand > bestFit) {
+                    bestFit=cand; bestU=u; bestV=v; bestPos=pos;
                 }
             }
-
-            if (bestU != -1) {
+            if (bestU!=-1) {
                 sel.erase(bestU); sel.insert(bestV);
                 nonSel.erase(bestV); nonSel.insert(bestU);
                 sol[bestPos] = bestV;
-                posOf[bestV] = bestPos;
-                posOf[bestU] = -1;
+                posOf[bestV] = bestPos; posOf[bestU] = -1;
                 fit = bestFit;
                 improved = true;
             }
         } else {
             shuffle(neigh.begin(), neigh.end(), rng);
-            for (auto [u, v] : neigh) {
+            for (auto [u,v] : neigh) {
                 if (evals >= maxevals) break;
-                int pos = posOf[u];
-                assert(pos >= 0);
+                int pos = posOf[u]; assert(pos>=0);
                 sol[pos] = v;
                 tFitness cand = problem->fitness(sol);
                 ++evals;
-                if (cand < fit) {
+                if (cand > fit) {
                     sel.erase(u); sel.insert(v);
                     nonSel.erase(v); nonSel.insert(u);
-                    sol[pos] = v;
-                    posOf[v] = pos;
-                    posOf[u] = -1;
                     fit = cand;
+                    sol[pos] = v;
+                    posOf[v] = pos; posOf[u] = -1;
                     improved = true;
                     break;
                 }
