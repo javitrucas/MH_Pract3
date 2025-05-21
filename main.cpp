@@ -18,13 +18,11 @@ void printSolution(const tSolution &sol) {
 }
 
 int main() {
-    // Parámetros comunes
     const long seed     = 42;
     const int  m        = 10;
     const double p_icm  = 0.01;
     const int  ev_icm   = 20;
 
-    // Instancias SNAP
     vector<string> instances = {
         "../datos/ca-GrQc.txt",
         "../datos/p2p-Gnutella05.txt",
@@ -32,7 +30,6 @@ int main() {
         "../datos/p2p-Gnutella25.txt"
     };
 
-    // Semilla global
     Random::seed(seed);
     cout << "Batch SNIMP:\n"
          << "  seed=" << seed
@@ -81,9 +78,9 @@ int main() {
 
         // 3) LOCAL SEARCH (P1a)
         {
-            for (auto mode : { SearchStrategy::randLS, SearchStrategy::heurLS }) {
+            for (auto mode : { SearchStrategy::LSall, SearchStrategy::BLsmall }) {
                 cout << "\n-- Local Search ("
-                     << (mode==SearchStrategy::randLS ? "RandLS" : "HeurLS")
+                     << (mode == SearchStrategy::LSall ? "LSall" : "BLsmall")
                      << ") --\n";
                 LocalSearch ls(mode);
                 auto start = chrono::high_resolution_clock::now();
@@ -98,9 +95,9 @@ int main() {
 
         // 4) AGG (P2)
         {
-            for (auto op : { AGGCrossover::UNIFORM, AGGCrossover::POSITION }) {
+            for (auto op : { AGGCrossover::CON_ORDEN, AGGCrossover::SIN_ORDEN }) {
                 cout << "\n-- AGG ("
-                     << (op==AGGCrossover::UNIFORM ? "Uniform" : "Position")
+                     << (op == AGGCrossover::CON_ORDEN ? "Con Orden" : "Sin Orden")
                      << ") --\n";
                 AGG agg(30, 0.7, 0.1);
                 agg.setCrossoverOperator(op);
@@ -116,9 +113,9 @@ int main() {
 
         // 5) AGE (P2)
         {
-            for (auto strat : { CrossoverStrategy::UNIFORM, CrossoverStrategy::POSITION }) {
+            for (auto strat : { CrossoverStrategy::CON_ORDEN, CrossoverStrategy::SIN_ORDEN }) {
                 cout << "\n-- AGE ("
-                     << (strat==CrossoverStrategy::UNIFORM ? "Uniform" : "Position")
+                     << (strat == CrossoverStrategy::CON_ORDEN ? "Con Orden" : "Sin Orden")
                      << ") --\n";
                 AGE age(30, 0.1);
                 age.setCrossoverStrategy(strat);
@@ -137,8 +134,12 @@ int main() {
             vector<string> amNames = { "AM-1 (All)", "AM-2 (RandomSubset)", "AM-3 (BestSubset)" };
             vector<AMStrategy> amStrats = { AMStrategy::All, AMStrategy::RandomSubset, AMStrategy::BestSubset };
             for (int i = 0; i < 3; ++i) {
-                cout << "\n-- " << amNames[i] << " + RandLS --\n";
-                AM am(30, 0.7, 0.1, 0.1, amStrats[i], SearchStrategy::randLS);
+                // Primer memético usa LSall, los otros dos usan BLsmall
+                SearchStrategy lsMode = (i == 0 ? SearchStrategy::LSall : SearchStrategy::BLsmall);
+                cout << "\n-- " << amNames[i]
+                     << " + " << (lsMode == SearchStrategy::LSall ? "LSall" : "BLsmall")
+                     << " --\n";
+                AM am(30, 0.7, 0.1, 0.1, amStrats[i], lsMode);
                 auto start = chrono::high_resolution_clock::now();
                 auto res   = am.optimize(&problem, 1000);
                 auto end   = chrono::high_resolution_clock::now();

@@ -16,6 +16,7 @@ ResultMH LocalSearch::optimize(Problem* problem, int maxevals) {
 
     tFitness fit = problem->fitness(sol);
     int evals = 1;
+    int evalsWithoutImprovement = 0;
 
     vector<int> posOf(n, -1);
     for (int i = 0; i < (int)m; ++i)
@@ -26,61 +27,54 @@ ResultMH LocalSearch::optimize(Problem* problem, int maxevals) {
         if (!sel.count(i)) nonSel.insert(i);
 
     vector<pair<int,int>> neigh;
-    mt19937 rng(Random::get<int>(0, 1<<30));
 
     bool improved = true;
     while (improved && evals < maxevals) {
         improved = false;
         neigh.clear();
 
+        // Generar todos los movimientos de intercambio (u en sel, v en nonSel)
         for (int u : sel)
             for (int v : nonSel)
                 neigh.emplace_back(u, v);
         if (neigh.empty()) break;
 
-        if (explorationMode == SearchStrategy::heurLS) {
-            tFitness bestFit = numeric_limits<tFitness>::lowest();
-            int bestU=-1, bestV=-1, bestPos=-1;
+        // Barajado Fisher–Yates usando Random::get
+        for (int i = (int)neigh.size() - 1; i > 0; --i) {
+            int j = Random::get<int>(0, i);
+            std::swap(neigh[i], neigh[j]);
+        }
 
-            for (auto [u,v] : neigh) {
-                if (evals >= maxevals) break;
-                int pos = posOf[u]; assert(pos>=0);
-                sol[pos] = v;
-                tFitness cand = problem->fitness(sol);
-                ++evals;
-                sol[pos] = u;
-                if (cand > bestFit) {
-                    bestFit=cand; bestU=u; bestV=v; bestPos=pos;
-                }
-            }
-            if (bestU!=-1) {
-                sel.erase(bestU); sel.insert(bestV);
-                nonSel.erase(bestV); nonSel.insert(bestU);
-                sol[bestPos] = bestV;
-                posOf[bestV] = bestPos; posOf[bestU] = -1;
-                fit = bestFit;
+        // Primer‐mejor
+        for (auto [u, v] : neigh) {
+            if (evals >= maxevals) break;
+
+            int pos = posOf[u];
+            assert(pos >= 0);
+            sol[pos] = v;
+            tFitness cand = problem->fitness(sol);
+            ++evals;
+
+            if (cand > fit) {
+                // Aceptar mejora
+                sel.erase(u); sel.insert(v);
+                nonSel.erase(v); nonSel.insert(u);
+                fit = cand;
+                posOf[v] = pos; posOf[u] = -1;
                 improved = true;
-            }
-        } else {
-            shuffle(neigh.begin(), neigh.end(), rng);
-            for (auto [u,v] : neigh) {
-                if (evals >= maxevals) break;
-                int pos = posOf[u]; assert(pos>=0);
-                sol[pos] = v;
-                tFitness cand = problem->fitness(sol);
-                ++evals;
-                if (cand > fit) {
-                    sel.erase(u); sel.insert(v);
-                    nonSel.erase(v); nonSel.insert(u);
-                    fit = cand;
-                    sol[pos] = v;
-                    posOf[v] = pos; posOf[u] = -1;
-                    improved = true;
-                    break;
-                }
+                evalsWithoutImprovement = 0;
+                break;
+            } else {
+                // Revertir y contar sin mejora para BLsmall
                 sol[pos] = u;
+                if (explorationMode == SearchStrategy::BLsmall)
+                    ++evalsWithoutImprovement;
             }
         }
+
+        // Criterio de parada adicional para BLsmall
+        if (explorationMode == SearchStrategy::BLsmall && evalsWithoutImprovement >= 20)
+            break;
     }
 
     return ResultMH(sol, fit, evals);

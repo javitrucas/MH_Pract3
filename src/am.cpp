@@ -1,11 +1,13 @@
 #include "am.h"
 #include <algorithm>
-#include <random>
 
 using namespace std;
 
-AM::AM(int popSize, double pc, double pm,
-       double proportion, AMStrategy strategy,
+AM::AM(int popSize,
+       double pc,
+       double pm,
+       double proportion,
+       AMStrategy strategy,
        SearchStrategy lsStrategy)
     : popSize_(popSize),
       pc_(pc),
@@ -13,7 +15,10 @@ AM::AM(int popSize, double pc, double pm,
       proportion_(proportion),
       strategy_(strategy),
       crossoverOp_(AMCrossover::CON_ORDEN),
-      lsStrategy_(lsStrategy)
+      lsStrategy_(lsStrategy),
+      // Fijamos maxLSIters_ según el tipo de BL:
+      maxLSIters_((lsStrategy_ == SearchStrategy::LSall) ? 1000
+                                                        : 20)
 { }
 
 ResultMH AM::optimize(Problem* problem, int maxEvals) {
@@ -25,18 +30,23 @@ ResultMH AM::optimize(Problem* problem, int maxEvals) {
         population.push_back({sol, fit});
     }
     int evals = popSize_;
-
-    LocalSearch ls(lsStrategy_);
     int gen = 0;
+
+    // Creamos la BL con la estrategia indicada (LSall o BLsmall)
+    LocalSearch ls(lsStrategy_);
 
     while (evals < maxEvals) {
         ++gen;
 
+        // Selección padres
         vector<Individual> parents;
+        parents.reserve(popSize_);
         for (int i = 0; i < popSize_; ++i)
             parents.push_back(tournamentSelect(population, 3));
 
+        // Cruce + mutación
         vector<Individual> children;
+        children.reserve(popSize_);
         for (int i = 0; i < popSize_; i += 2) {
             auto &p1 = parents[i];
             auto &p2 = parents[i + 1];
@@ -48,7 +58,6 @@ ResultMH AM::optimize(Problem* problem, int maxEvals) {
                 else
                     tie(c1, c2) = crossoverSinOrden(p1.sol, p2.sol);
             }
-
             if (Random::get<double>(0.0, 1.0) < pm_) mutate(c1);
             if (Random::get<double>(0.0, 1.0) < pm_) mutate(c2);
 
@@ -57,55 +66,49 @@ ResultMH AM::optimize(Problem* problem, int maxEvals) {
         }
         evals += popSize_;
 
-        // Aplicar Búsqueda Local cada 10 generaciones
+        // Cada 10 generaciones, aplicamos BL según la estrategia AMStrategy
         if (gen % 10 == 0) {
             int numLS = max(1, int(proportion_ * popSize_));
+
+            auto applyLS = [&](Individual &ind){
+                auto res = ls.optimize(problem, maxLSIters_);
+                ind.sol     = res.solution;
+                ind.fitness = res.fitness;
+                evals += res.evaluations;
+            };
+
             if (strategy_ == AMStrategy::All) {
-                for (auto &ch : children) {
-                    auto res = ls.optimize(problem, 20);
-                    ch.sol = res.solution;
-                    ch.fitness = res.fitness;
-                    evals += res.evaluations;
-                }
+                for (auto &ch : children)
+                    applyLS(ch);
+
             } else if (strategy_ == AMStrategy::RandomSubset) {
                 Random::shuffle(children.begin(), children.end());
-                for (int i = 0; i < numLS; ++i) {
-                    auto res = ls.optimize(problem, 20);
-                    children[i].sol = res.solution;
-                    children[i].fitness = res.fitness;
-                    evals += res.evaluations;
-                }
-            } else {
-                nth_element(children.begin(), children.begin() + numLS, children.end(),
-                            [](const Individual &a, const Individual &b) {
-                                return a.fitness > b.fitness;
-                            });
-                for (int i = 0; i < numLS; ++i) {
-                    auto res = ls.optimize(problem, 20);
-                    children[i].sol = res.solution;
-                    children[i].fitness = res.fitness;
-                    evals += res.evaluations;
-                }
+                for (int i = 0; i < numLS; ++i)
+                    applyLS(children[i]);
+
+            } else { // BestSubset
+                nth_element(children.begin(),
+                            children.begin() + numLS,
+                            children.end(),
+                            [](auto &a, auto &b){ return a.fitness > b.fitness; });
+                for (int i = 0; i < numLS; ++i)
+                    applyLS(children[i]);
             }
         }
 
         // Reemplazo generacional con elitismo
         auto bestParent = *max_element(population.begin(), population.end(),
-                                       [](const Individual &a, const Individual &b) {
-                                           return a.fitness < b.fitness;
-                                       });
+            [](auto &a, auto &b){ return a.fitness < b.fitness; });
+
         population = move(children);
+
         auto worstIt = min_element(population.begin(), population.end(),
-                                   [](const Individual &a, const Individual &b) {
-                                       return a.fitness < b.fitness;
-                                   });
+            [](auto &a, auto &b){ return a.fitness < b.fitness; });
         if (bestParent.fitness > worstIt->fitness)
             *worstIt = bestParent;
     }
 
     auto best = *max_element(population.begin(), population.end(),
-                             [](const Individual &a, const Individual &b) {
-                                 return a.fitness < b.fitness;
-                             });
+        [](auto &a, auto &b){ return a.fitness < b.fitness; });
     return ResultMH(best.sol, best.fitness, evals);
 }

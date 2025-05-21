@@ -9,9 +9,9 @@
 #include <vector>
 
 enum class AMStrategy {
-    All,
-    RandomSubset,
-    BestSubset
+    All,           // BL a TODOS los hijos
+    RandomSubset,  // BL a un subset aleatorio
+    BestSubset     // BL a los mejores hijos
 };
 
 enum class AMCrossover {
@@ -21,9 +21,12 @@ enum class AMCrossover {
 
 class AM : public MH, protected GeneticUtils {
 public:
-    AM(int popSize, double pc, double pm,
-       double proportion, AMStrategy strategy,
-       SearchStrategy lsStrategy = SearchStrategy::randLS);
+    AM(int popSize,
+       double pc,
+       double pm,
+       double proportion,
+       AMStrategy strategy,
+       SearchStrategy lsStrategy = SearchStrategy::LSall);
 
     void setCrossoverOperator(AMCrossover op) {
         crossoverOp_ = op;
@@ -38,6 +41,7 @@ private:
     AMStrategy strategy_;
     AMCrossover crossoverOp_;
     SearchStrategy lsStrategy_;
+    int maxLSIters_;  // nº de evaluaciones a pasarle a la BL en cada llamada
 };
 
 #endif // AM_H
