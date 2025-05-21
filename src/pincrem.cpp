@@ -1,4 +1,4 @@
-#include <pincrem.h>
+#include "pincrem.h"
 #include <random.hpp>
 #include <fstream>
 #include <iostream>
@@ -7,8 +7,6 @@
 #include <string>
 #include <sstream>
 #include <numeric>
-#include <limits>
-#include <random>
 
 /**
  * Carga una instancia SNIMP en formato SNAP:
@@ -43,10 +41,9 @@ void ProblemIncrem::leerArchivo(const std::string& filename) {
     int edge_count = 0;
     while (std::getline(file, line)) {
         if (line.empty() || line[0] == '#') continue;
-
         std::istringstream iss(line);
         if (iss >> u >> v) {
-            if (u >= 0 && v >= 0 && u < size && v < size) {
+            if (u >= 0 && v >= 0 && u < (int)size && v < (int)size) {
                 adj[u].push_back(v);
                 ++edge_count;
             }
@@ -71,13 +68,10 @@ tSolution ProblemIncrem::createSolution() {
 
 /**
  * Simula el Independent Cascade Model sobre un seed set.
- * Devuelve promedio de nodos activados en ev iteraciones.
+ * Devuelve promedio de nodos activados en ev_icm iteraciones.
  */
 double ProblemIncrem::simulateICM(const tSolution &seed_set) {
-    std::uniform_real_distribution<double> dist(0.0, 1.0);
-    static thread_local std::mt19937 rng(std::random_device{}());
     int total = 0;
-
     for (int it = 0; it < ev_icm; ++it) {
         std::vector<char> active(size, 0);
         std::queue<int> Q;
@@ -89,8 +83,7 @@ double ProblemIncrem::simulateICM(const tSolution &seed_set) {
         while (!Q.empty()) {
             int x = Q.front(); Q.pop();
             for (int y : adj[x]) {
-                double r = dist(rng);
-                if (!active[y] && r < p_icm) {
+                if (!active[y] && Random::get<double>(0.0,1.0) < p_icm) {
                     active[y] = 1;
                     Q.push(y);
                     ++count;
@@ -103,11 +96,10 @@ double ProblemIncrem::simulateICM(const tSolution &seed_set) {
 }
 
 /**
- * Fitness SNIMP: minimizamos -spread para maximizar el spread real.
+ * Fitness SNIMP: fitness = spread (positivo), para maximizar.
  */
 tFitness ProblemIncrem::fitness(const tSolution &solution) {
-    double spread = simulateICM(solution);
-    return -static_cast<tFitness>(spread);
+    return static_cast<tFitness>( simulateICM(solution) );
 }
 
 // Factoring no usado
