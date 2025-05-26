@@ -8,7 +8,7 @@ AGG::AGG(int popSize, double pc, double pm)
   : popSize_(popSize)
   , pc_(pc)
   , pm_(pm)
-  , crossoverOp_(AGGCrossover::UNIFORM)
+  , crossoverOp_(AGGCrossover::CON_ORDEN)
 { }
 
 ResultMH AGG::optimize(Problem* problem, int maxEvals) {
@@ -25,74 +25,53 @@ ResultMH AGG::optimize(Problem* problem, int maxEvals) {
 
     // 2) Bucle generacional
     while (evals < maxEvals) {
-        // 2.1) Selección de padres (torneo k=3, popSize_ veces)
+        // 2.1) Selección por torneo
         vector<Individual> parents;
         parents.reserve(popSize_);
-        for (int i = 0; i < popSize_; ++i) {
+        for (int i = 0; i < popSize_; ++i)
             parents.push_back(tournamentSelect(population, 3));
-        }
 
-        // 2.2) Recombinar + mutar -> hijos
+        // 2.2) Cruce y mutación
         vector<Individual> children;
         children.reserve(popSize_);
-        int n = problem->getSolutionSize();
-        int targetOnes = dynamic_cast<ProblemIncrem*>(problem)->getM();
 
         for (int i = 0; i < popSize_; i += 2) {
-            // Emparejar padres i, i+1
-            auto &p1 = parents[i];
-            auto &p2 = parents[i+1];
+            auto& p1 = parents[i];
+            auto& p2 = parents[i+1];
 
-            // convertir a binario
-            auto b1 = list2bin(p1.sol, n);
-            auto b2 = list2bin(p2.sol, n);
-
-            // cruce con probabilidad pc_
+            tSolution c1 = p1.sol, c2 = p2.sol;
             if (Random::get<double>(0.0,1.0) < pc_) {
-                if (crossoverOp_ == AGGCrossover::UNIFORM) {
-                    tie(b1, b2) = crossoverUniformBin(b1, b2, targetOnes);
+                if (crossoverOp_ == AGGCrossover::CON_ORDEN) {
+                    tie(c1, c2) = crossoverConOrden(p1.sol, p2.sol);
                 } else {
-                    tie(b1, b2) = crossoverPositionBin(b1, b2);
+                    tie(c1, c2) = crossoverSinOrden(p1.sol, p2.sol);
                 }
             }
 
-            // mutación por individuo
-            if (Random::get<double>(0.0,1.0) < pm_) mutateBin(b1);
-            if (Random::get<double>(0.0,1.0) < pm_) mutateBin(b2);
+            if (Random::get<double>(0.0,1.0) < pm_) mutate(c1);
+            if (Random::get<double>(0.0,1.0) < pm_) mutate(c2);
 
-            // reconstruir lista y evaluar
-            Individual c1, c2;
-            c1.sol     = bin2list(b1);
-            c1.fitness = problem->fitness(c1.sol);
-            c2.sol     = bin2list(b2);
-            c2.fitness = problem->fitness(c2.sol);
-            children.push_back(c1);
-            children.push_back(c2);
+            children.push_back({c1, problem->fitness(c1)});
+            children.push_back({c2, problem->fitness(c2)});
         }
+
         evals += popSize_;
 
         // 2.3) Reemplazo generacional con elitismo
-        //  - conservar mejor de padres si no está entre hijos
-        //  encontrar mejor padre
-        auto bestParent = *min_element(population.begin(), population.end(),
-                                       [](auto &a, auto &b){
-                                           return a.fitness < b.fitness;
-                                       });
-        // reemplazar población completa por hijos
+        auto bestParent = *max_element(population.begin(), population.end(),
+                                       [](auto& a, auto& b){ return a.fitness < b.fitness; });
+
         population = move(children);
-        // encontrar peor hijo
-        auto worstIt = max_element(population.begin(), population.end(),
-                                   [](auto &a, auto &b){
-                                       return a.fitness < b.fitness;
-                                   });
-        // insertar elitismo
-        if (bestParent.fitness < worstIt->fitness) {
+
+        auto worstIt = min_element(population.begin(), population.end(),
+                                   [](auto& a, auto& b){ return a.fitness < b.fitness; });
+
+        if (bestParent.fitness > worstIt->fitness)
             *worstIt = bestParent;
-        }
     }
 
-    // 3) Devolver mejor final
-    auto best = *min_element(population.begin(), population.end(),
-                             [](auto &a, auto &b){ return a.fitness < b.fitness; });
+    // 3) Devolver el mejor
+    auto best = *max_element(population.begin(), population.end(),
+                             [](auto& a, auto& b){ return a.fitness < b.fitness; });
     return ResultMH(best.sol, best.fitness, evals);
 }

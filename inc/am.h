@@ -1,38 +1,47 @@
-// ===== am.h =====
-
 #ifndef AM_H
 #define AM_H
 
 #include "mh.h"
 #include "problem.h"
 #include "pincrem.h"
-#include "localsearch.h"  // Para usar randLS
-#include "genetic_utils.h" // Para operadores genéticos
+#include "localsearch.h"
+#include "genetic_utils.h"
 #include <vector>
 
-// AM: Tipos de aplicación de Búsqueda Local
-enum class AMStrategy { 
-    All,            // 100% individuos
-    RandomSubset,   // 10% random
-    BestSubset      // 10% mejores
+enum class AMStrategy {
+    All,           // BL a TODOS los hijos
+    RandomSubset,  // BL a un subset aleatorio
+    BestSubset     // BL a los mejores hijos
 };
 
-// Clase AM: Algoritmo Memético
+enum class AMCrossover {
+    CON_ORDEN,
+    SIN_ORDEN
+};
+
 class AM : public MH, protected GeneticUtils {
 public:
-    AM(int popSize, double pc, double pm,
-        double proportion, AMStrategy strategy,
-        SearchStrategy lsStrategy = SearchStrategy::randLS);
+    AM(int popSize,
+       double pc,
+       double pm,
+       double proportion,
+       AMStrategy strategy,
+       SearchStrategy lsStrategy = SearchStrategy::LSall);
+
+    void setCrossoverOperator(AMCrossover op) {
+        crossoverOp_ = op;
+    }
 
     virtual ResultMH optimize(Problem* problem, int maxEvals) override;
 
 private:
-    int popSize_;           ///< Tamaño población
-    double pc_;             ///< Probabilidad de cruce
-    double pm_;             ///< Probabilidad de mutación
-    double proportion_;     ///< Proporción de individuos a los que aplicar BL
-    AMStrategy strategy_;   ///< Tipo de estrategia BL (all, random, best)
+    int popSize_;
+    double pc_, pm_;
+    double proportion_;
+    AMStrategy strategy_;
+    AMCrossover crossoverOp_;
     SearchStrategy lsStrategy_;
+    int maxLSIters_;  // nº de evaluaciones a pasarle a la BL en cada llamada
 };
 
 #endif // AM_H

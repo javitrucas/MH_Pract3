@@ -2,7 +2,6 @@
 #define GENETIC_UTILS_H
 
 #include "problem.h"    // Problem, tSolution, tFitness
-#include "pincrem.h"    // ProblemIncrem
 #include <vector>
 #include <utility>
 
@@ -14,20 +13,19 @@ struct Individual {
 
 class GeneticUtils {
 protected:
-    std::vector<int> list2bin(const tSolution& lst, int n) const;
-    tSolution bin2list(const std::vector<int>& bin) const;
+    // Selección por torneo (maximiza fitness)
     Individual tournamentSelect(const std::vector<Individual>& pop, int k = 3) const;
 
-    std::pair<std::vector<int>, std::vector<int>>
-    crossoverUniformBin(const std::vector<int>& b1,
-                        const std::vector<int>& b2,
-                        int targetOnes) const;
+    // Crossover sin orden (con reparación)
+    std::pair<tSolution, tSolution>
+    crossoverSinOrden(const tSolution& p1, const tSolution& p2) const;
 
-    std::pair<std::vector<int>, std::vector<int>>
-    crossoverPositionBin(const std::vector<int>& b1,
-                         const std::vector<int>& b2) const;
+    // Crossover con orden (respeta orden sin repetidos)
+    std::pair<tSolution, tSolution>
+    crossoverConOrden(const tSolution& p1, const tSolution& p2) const;
 
-    void mutateBin(std::vector<int>& bin) const;
+    // Mutación por intercambio de dos posiciones
+    void mutate(std::vector<int>& sol) const;
 };
 
 #endif // GENETIC_UTILS_H

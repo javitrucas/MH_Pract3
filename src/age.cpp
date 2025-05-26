@@ -7,7 +7,7 @@ using namespace std;
 AGE::AGE(int popSize, double pm)
   : popSize_(popSize)
   , pm_(pm)
-  , crossoverStrategy_(CrossoverStrategy::UNIFORM)
+  , crossoverStrategy_(CrossoverStrategy::CON_ORDEN)  // valor por defecto
 { }
 
 ResultMH AGE::optimize(Problem* problem, int maxEvals) {
@@ -28,43 +28,35 @@ ResultMH AGE::optimize(Problem* problem, int maxEvals) {
         Individual p1 = tournamentSelect(population, 3);
         Individual p2 = tournamentSelect(population, 3);
 
-        // Convertir a binario
-        int n = problem->getSolutionSize();
-        auto b1 = list2bin(p1.sol, n);
-        auto b2 = list2bin(p2.sol, n);
-
-        // Cruce
-        vector<int> cb1, cb2;
-        int targetOnes = dynamic_cast<ProblemIncrem*>(problem)->getM();
-        if (crossoverStrategy_ == CrossoverStrategy::UNIFORM) {
-            tie(cb1, cb2) = crossoverUniformBin(b1, b2, targetOnes);
+        // Cruce entero
+        tSolution c1, c2;
+        if (crossoverStrategy_ == CrossoverStrategy::CON_ORDEN) {
+            tie(c1, c2) = crossoverConOrden(p1.sol, p2.sol);
         } else {
-            tie(cb1, cb2) = crossoverPositionBin(b1, b2);
+            tie(c1, c2) = crossoverSinOrden(p1.sol, p2.sol);
         }
 
         // Mutación
-        if (Random::get<double>(0.0,1.0) < pm_) mutateBin(cb1);
-        if (Random::get<double>(0.0,1.0) < pm_) mutateBin(cb2);
+        if (Random::get<double>(0.0,1.0) < pm_) mutate(c1);
+        if (Random::get<double>(0.0,1.0) < pm_) mutate(c2);
 
-        // Reconstruir y evaluar hijos
-        Individual cind1, cind2;
-        cind1.sol     = bin2list(cb1);
-        cind1.fitness = problem->fitness(cind1.sol);
-        cind2.sol     = bin2list(cb2);
-        cind2.fitness = problem->fitness(cind2.sol);
+        // Evaluar hijos
+        Individual ind1{c1, problem->fitness(c1)};
+        Individual ind2{c2, problem->fitness(c2)};
         evals += 2;
 
-        // Reemplazo estacionario (2 hijos compiten c/ 2 peores)
+        // Reemplazo estacionario: sustituyen a los 2 peores
         sort(population.begin(), population.end(),
-             [](auto &a, auto &b){ return a.fitness > b.fitness; }); // descendente
-        if (cind1.fitness < population[0].fitness)
-            population[0] = cind1;
-        if (cind2.fitness < population[1].fitness)
-            population[1] = cind2;
+             [](auto &a, auto &b){ return a.fitness < b.fitness; }); // ascendente
+
+        if (ind1.fitness > population[0].fitness)
+            population[0] = ind1;
+        if (ind2.fitness > population[1].fitness)
+            population[1] = ind2;
     }
 
-    // 3) Devolver mejor
-    auto best = *min_element(population.begin(), population.end(),
+    // 3) Devolver el mejor
+    auto best = *max_element(population.begin(), population.end(),
                              [](auto &a, auto &b){ return a.fitness < b.fitness; });
     return ResultMH(best.sol, best.fitness, evals);
 }
