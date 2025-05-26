@@ -8,6 +8,7 @@
 #include "agg.h"
 #include "age.h"
 #include "am.h"
+#include "es.h"
 #include <random.hpp>
 
 using namespace std;
@@ -148,6 +149,19 @@ int main() {
                      << " | t(s)=" << chrono::duration<double>(end-start).count()
                      << "\nSolution: ["; printSolution(res.solution); cout << "]\n";
             }
+        }
+
+        // 7) ES (P3)
+        {
+            cout << "\n-- Enfriamiento Simulado --\n";
+            ES es;
+            auto start = chrono::high_resolution_clock::now();
+            auto res = es.optimize(&problem, 1000);
+            auto end   = chrono::high_resolution_clock::now();
+            cout << "Best fitness: " << res.fitness
+                 << " | evals=" << res.evaluations
+                 << " | t(s)=" << chrono::duration<double>(end-start).count()
+                 << "\nSolution: ["; printSolution(res.solution); cout << "]\n";
         }
 
         cout << "\n---------------------------------------------\n\n";

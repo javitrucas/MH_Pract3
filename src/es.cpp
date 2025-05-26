@@ -7,75 +7,100 @@
 using namespace std;
 
 ResultMH ES::optimize(Problem* problem, int maxEvals) {
+    // Parámetros fijos
     const double phi = 0.3;
-    const double mu = 0.2;
-    const double Tf = 1e-3;
+    const double mu  = 0.2;
+    const double Tf  = 1e-3;
 
+    // Datos del problema
     auto* realP = dynamic_cast<ProblemIncrem*>(problem);
-    size_t n = problem->getSolutionSize();
-    tSolution current = problem->createSolution();
-    size_t m = current.size();
+    size_t n    = problem->getSolutionSize();
+    tSolution sol    = problem->createSolution();
+    size_t m    = sol.size();
 
-    tFitness fCurrent = problem->fitness(current);
-    tSolution best = current;
-    tFitness fBest = fCurrent;
+    // Fitness inicial
+    tFitness fSol  = problem->fitness(sol);
+    tSolution bestSol = sol;
+    tFitness fBest = fSol;
 
     int evals = 1;
     int maxVecinos = 5 * m;
-    int maxExitos = max(1, maxVecinos / 10);
+    int maxExitos  = max(1, maxVecinos / 10);
+
+    // Número de enfriamientos
     int M = maxEvals / maxVecinos;
 
-    double T0 = (mu * fCurrent) / (-log(phi));
+    // Temperatura inicial y coeficiente beta
+    double T0 = (mu * fSol) / (-log(phi));
+    if (T0 <= Tf) T0 = Tf * 10;
     double beta = (T0 - Tf) / (M * T0 * Tf);
     double T = T0;
 
-    unordered_set<int> sel(current.begin(), current.end()), nonSel;
-    for (int i = 0; i < (int)n; ++i)
-        if (!sel.count(i)) nonSel.insert(i);
+    // Prepara vectores de selección rápida
+    vector<int> posOf(n, -1);
+    vector<int> selVec, nonSelVec;
+    selVec.reserve(m); nonSelVec.reserve(n - m);
 
-    vector<int> selVec(current.begin(), current.end());
+    for (int i = 0; i < (int)m; ++i) {
+        selVec.push_back(sol[i]);
+        posOf[sol[i]] = i;
+    }
+    for (int i = 0; i < (int)n; ++i) {
+        if (posOf[i] == -1) nonSelVec.push_back(i);
+    }
 
+    // Bucle de enfriamientos
     while (evals < maxEvals && T > Tf) {
         int exitos = 0, vecinos = 0;
-        vector<bool> usado(m, false);
 
+        // Bucle interior L(T)
         while (vecinos < maxVecinos && exitos < maxExitos && evals < maxEvals) {
-            int pos;
-            do {
-                pos = Random::get<int>(0, m - 1);
-            } while (usado[pos]);
-            usado[pos] = true;
+            // Elegir aleatoriamente posición a modificar
+            int pos = Random::get<int>(0, m - 1);
 
-            int u = selVec[pos];
-            int v = *next(nonSel.begin(), Random::get<int>(0, nonSel.size() - 1));
+            // Escoger valor no seleccionado aleatorio
+            int idxNon = Random::get<int>(0, (int)nonSelVec.size() - 1);
+            int v = nonSelVec[idxNon];
+            int u = sol[pos];
 
-            tSolution neighbor = current;
-            neighbor[pos] = v;
-            tFitness fNeighbor = problem->fitness(neighbor);
+            // Generar vecino in-place
+            sol[pos] = v;
+            tFitness fNeighbor = problem->fitness(sol);
             ++evals;
             ++vecinos;
 
-            double delta = fCurrent - fNeighbor;
-            bool accept = (delta < 0) || (Random::get<double>(0.0, 1.0) < exp(-delta / T));
+            // Criterio de aceptación
+            double delta = fSol - fNeighbor;
+            bool accept = (delta < 0) ||
+                          (Random::get<double>(0.0, 1.0) <= exp(-delta / T));
 
             if (accept) {
-                current = neighbor;
-                fCurrent = fNeighbor;
-                sel.erase(u); sel.insert(v);
-                nonSel.erase(v); nonSel.insert(u);
-                selVec[pos] = v;
+                // Aceptar vecino
+                fSol = fNeighbor;
                 ++exitos;
 
-                if (fCurrent > fBest) {
-                    best = current;
-                    fBest = fCurrent;
+                // Actualizar estructuras posOf, selVec y nonSelVec
+                selVec[pos] = v;
+                posOf[v]    = pos;
+                posOf[u]    = -1;
+                nonSelVec[idxNon] = u;
+
+                // Actualizar mejor global
+                if (fSol > fBest) {
+                    fBest = fSol;
+                    bestSol = sol;
                 }
+            } else {
+                // Revertir
+                sol[pos] = u;
             }
         }
 
+        // Si no hubo éxitos, terminamos
         if (exitos == 0) break;
+        // Enfriamiento Cauchy modificado
         T = T / (1 + beta * T);
     }
 
-    return ResultMH(best, fBest, evals);
+    return ResultMH(bestSol, fBest, evals);
 }
