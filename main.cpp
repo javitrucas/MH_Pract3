@@ -12,6 +12,7 @@
 #include "bmb.h"
 #include "ils.h"
 #include "grasp.h"
+#include "ils_es.h"
 #include <random.hpp>
 
 using namespace std;
@@ -186,6 +187,19 @@ int main() {
             ILS ils;
             auto start = chrono::high_resolution_clock::now();
             auto res = ils.optimize(&problem, 0);
+            auto end   = chrono::high_resolution_clock::now();
+            cout << "Best fitness: " << res.fitness
+                 << " | evals=" << res.evaluations
+                 << " | t(s)=" << chrono::duration<double>(end-start).count()
+                 << "\nSolution: ["; printSolution(res.solution); cout << "]\n";
+        }
+
+        // 9.1) ILS-ES (P3)
+        {
+            cout << "\n-- ILS-ES --\n";
+            ILSES ilses;
+            auto start = chrono::high_resolution_clock::now();
+            auto res = ilses.optimize(&problem, 0);
             auto end   = chrono::high_resolution_clock::now();
             cout << "Best fitness: " << res.fitness
                  << " | evals=" << res.evaluations
