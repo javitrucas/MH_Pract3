@@ -28,16 +28,21 @@ void printSolution(const tSolution &sol) {
         cout << sol[i] << (i + 1 < sol.size() ? ", " : "");
 }
 
+// Nueva estructura para recuperar los tres valores
+struct Metrics {
+    double fitness;
+    int evals;
+    double time;
+};
+
 int main() {
     const long seed     = 42;
     const int  m        = 10;
     const double p_icm  = 0.01;
     const int  ev_icm   = 20;
 
-    // Crear carpeta output si no existe
     fs::create_directories("../output");
 
-    // Salidas
     ofstream csv("../output/results.csv");
     csv << "Instancia,Algoritmo,Fitness,Evals,Time\n";
     ofstream txt("../output/results.txt");
@@ -71,7 +76,8 @@ int main() {
         problem.p_icm  = p_icm;
         problem.ev_icm = ev_icm;
 
-        auto run_and_record = [&](const string &name, MH &alg, int maxEvals=0) {
+        // Ahora run_and_record devuelve Metrics
+        auto run_and_record = [&](const string &name, MH &alg, int maxEvals=0) -> Metrics {
             auto start = chrono::high_resolution_clock::now();
             auto res   = alg.optimize(&problem, maxEvals);
             auto end   = chrono::high_resolution_clock::now();
@@ -100,7 +106,7 @@ int main() {
                 << res.evaluations << ","
                 << t << "\n";
 
-            return res.fitness;
+            return {res.fitness, res.evaluations, t};
         };
 
         // 1) RANDOM SEARCH
@@ -116,32 +122,42 @@ int main() {
             run_and_record(name, ls, 10000);
         }
 
-        // 4/5) AGG & AGE (Práctica 2) – elegir mejor
-        double bestP2Fit = -numeric_limits<double>::infinity();
+        // 4/5) AGG & AGE (Práctica 2) – elegir mejor con todos los datos
+        Metrics bestP2{ -numeric_limits<double>::infinity(), 0, 0.0 };
         string bestP2Name;
         // AGG
         for (auto op : { AGGCrossover::CON_ORDEN, AGGCrossover::SIN_ORDEN }) {
             string name = string("AGG-") + (op == AGGCrossover::CON_ORDEN ? "ConOrden" : "SinOrden");
             AGG agg(30, 0.7, 0.1);
             agg.setCrossoverOperator(op);
-            double f = run_and_record(name, agg, 1000);
-            if (f > bestP2Fit) { bestP2Fit = f; bestP2Name = name; }
+            Metrics m = run_and_record(name, agg, 1000);
+            if (m.fitness > bestP2.fitness) {
+                bestP2 = m;
+                bestP2Name = name;
+            }
         }
         // AGE
         for (auto strat : { CrossoverStrategy::CON_ORDEN, CrossoverStrategy::SIN_ORDEN }) {
             string name = string("AGE-") + (strat == CrossoverStrategy::CON_ORDEN ? "ConOrden" : "SinOrden");
             AGE age(30, 0.1);
             age.setCrossoverStrategy(strat);
-            double f = run_and_record(name, age, 1000);
-            if (f > bestP2Fit) { bestP2Fit = f; bestP2Name = name; }
+            Metrics m = run_and_record(name, age, 1000);
+            if (m.fitness > bestP2.fitness) {
+                bestP2 = m;
+                bestP2Name = name;
+            }
         }
-        // Registrar Mejor-P2
+        // Registrar Mejor-P2 con evals y time
         txt << "-- Mejor-P2 (" << bestP2Name << ") --\n"
-            << "Best fitness: " << bestP2Fit << "\n\n";
+            << "Best fitness: " << bestP2.fitness
+            << " | evals=" << bestP2.evals
+            << " | t(s)=" << fixed << setprecision(4) << bestP2.time << "\n\n";
         csv << inst << ",Mejor-P2(" << bestP2Name << "),"
-            << bestP2Fit << ",,\n";
+            << bestP2.fitness << ","
+            << bestP2.evals << ","
+            << bestP2.time << "\n";
 
-        // 6) AMs (Práctica 2)
+        // 6) AMs
         vector<string> amNames = { "AM-1(All)", "AM-2(Random)", "AM-3(Best)" };
         vector<AMStrategy> amStrats = { AMStrategy::All, AMStrategy::RandomSubset, AMStrategy::BestSubset };
         for (int i = 0; i < 3; ++i) {
@@ -150,7 +166,7 @@ int main() {
             run_and_record(amNames[i], am, 1000);
         }
 
-        // 7) ES (P3)./
+        // 7) ES (P3)
         { ES es; run_and_record("ES", es, 1000); }
 
         // 8) BMB (P3)
