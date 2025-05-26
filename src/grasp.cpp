@@ -4,7 +4,6 @@
 #include <random.hpp>
 #include <algorithm>
 #include <limits>
-#include <cmath>
 
 using namespace std;
 
@@ -27,17 +26,16 @@ ResultMH GRASP::optimize(Problem* problem, int /*maxEvals*/) {
         vector<bool> inSel(n, false);
 
         // Paso 1: primera selección aleatoria
-        int first = Random::get<int>(0, n - 1);
+        int first = Random::get<int>(0, (int)n - 1);
         sel.push_back(first);
         inSel[first] = true;
 
         // Resto de m-1 pasos
-        while (sel.size() < m) {
-            // Calcular heurística para cada candidato
+        for (size_t step = 1; step < m; ++step) {
             tFitness hmax = numeric_limits<tFitness>::lowest();
             tFitness hmin = numeric_limits<tFitness>::max();
             vector<pair<int,tFitness>> hcands;
-            hcands.reserve(n - sel.size());
+            hcands.reserve(n - step);
 
             for (int u = 0; u < (int)n; ++u) {
                 if (inSel[u]) continue;
@@ -46,27 +44,25 @@ ResultMH GRASP::optimize(Problem* problem, int /*maxEvals*/) {
                 hmax = max(hmax, h);
                 hmin = min(hmin, h);
             }
-            // Umbral dinámico
             double r = Random::get<double>(0.0, 1.0);
             double thr = hmax - r * (hmax - hmin);
 
-            // Construir LRC
             vector<int> lrc;
-            for (auto &p : hcands) {
-                if (p.second >= thr) lrc.push_back(p.first);
-            }
-            // Selección aleatoria de LRC
+            for (auto &p : hcands)
+                if (p.second >= thr)
+                    lrc.push_back(p.first);
+
             int idx = Random::get<int>(0, (int)lrc.size() - 1);
             int chosen = lrc[idx];
             sel.push_back(chosen);
             inSel[chosen] = true;
         }
 
-        // Transformar a tSolution
+        // Convertir a tSolution
         tSolution sol(m);
         for (size_t i = 0; i < m; ++i) sol[i] = sel[i];
 
-        // Evaluar solución o aplicar BL
+        // Evaluar o aplicar BL
         if (mode_ == Mode::NOBL) {
             tFitness fit = problem->fitness(sol);
             totalEvals += 1;
@@ -90,11 +86,11 @@ ResultMH GRASP::optimize(Problem* problem, int /*maxEvals*/) {
 
 // Heurística basada en grado y grado de vecinos (gne)
 tFitness GRASP::computeHeuristic(ProblemIncrem* realP, int u) {
-    auto neigh = realP->getNeighbors(u);
-    tFitness sum = neigh.size();
-    for (int v : neigh) {
-        auto neigh2 = realP->getNeighbors(v);
-        sum += neigh2.size();
+    // Usar adj directamente
+    const auto &neighbors = realP->adj[u];
+    tFitness sum = neighbors.size();
+    for (int v : neighbors) {
+        sum += realP->adj[v].size();
     }
     return sum;
 }
