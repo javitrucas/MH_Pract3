@@ -10,6 +10,8 @@
 #include "am.h"
 #include "es.h"
 #include "bmb.h"
+#include "ils.h"
+#include "grasp.h
 #include <random.hpp>
 
 using namespace std;
@@ -165,7 +167,7 @@ int main() {
                  << "\nSolution: ["; printSolution(res.solution); cout << "]\n";
         }
 
-        // 7) BMB (P3)
+        // 8) BMB (P3)
         {
             cout << "\n-- BMB --\n";
             BMB bmb;
@@ -177,6 +179,47 @@ int main() {
                  << " | t(s)=" << chrono::duration<double>(end-start).count()
                  << "\nSolution: ["; printSolution(res.solution); cout << "]\n";
         }
+
+        // 9) ILS (P3)
+        {
+            cout << "\n-- ILS --\n";
+            ILS ils;
+            auto start = chrono::high_resolution_clock::now();
+            auto res = ils.optimize(&problem, 0);
+            auto end   = chrono::high_resolution_clock::now();
+            cout << "Best fitness: " << res.fitness
+                 << " | evals=" << res.evaluations
+                 << " | t(s)=" << chrono::duration<double>(end-start).count()
+                 << "\nSolution: ["; printSolution(res.solution); cout << "]\n";
+        }
+
+
+        // 10) GRASP-NOBL (P3)
+        {
+            cout << "\n-- GRASP-NOBL --\n";
+            GRASP grasp(GRASP::Mode::NOBL);
+            auto start = chrono::high_resolution_clock::now();
+            auto res = grasp.optimize(&problem, 0);
+            auto end   = chrono::high_resolution_clock::now();
+            cout << "Best fitness: " << res.fitness
+                << " | evals=" << res.evaluations
+                << " | t(s)=" << chrono::duration<double>(end-start).count()
+                << "\nSolution: ["; printSolution(res.solution); cout << "]\n";
+        }
+
+        // 11) GRASP-SIBL (P3)
+        {
+            cout << "\n-- GRASP-SIBL --\n";
+            GRASP grasp(GRASP::Mode::SIBL);
+            auto start = chrono::high_resolution_clock::now();
+            auto res = grasp.optimize(&problem, 0);
+            auto end   = chrono::high_resolution_clock::now();
+            cout << "Best fitness: " << res.fitness
+                << " | evals=" << res.evaluations
+                << " | t(s)=" << chrono::duration<double>(end-start).count()
+                << "\nSolution: ["; printSolution(res.solution); cout << "]\n";
+        }
+
 
         cout << "\n---------------------------------------------\n\n";
     }
