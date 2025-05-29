@@ -24,5 +24,5 @@ add_library(mh_lib STATIC ${SRC_FILES})
 add_executable(main ${CMAKE_SOURCE_DIR}/main.cpp)
 target_link_libraries(main PRIVATE mh_lib)
 
-# add_executable(tables ${CMAKE_SOURCE_DIR}/tables.cpp)
-# target_link_libraries(tables PRIVATE mh_lib)
+add_executable(tables ${CMAKE_SOURCE_DIR}/tables.cpp)
+target_link_libraries(tables PRIVATE mh_lib)
