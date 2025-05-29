@@ -58,7 +58,7 @@ int main() {
     cout << "Batch SNIMP:\n"
          << "  seed=" << seed
          << " | m=" << m
-         << " | p=" << p_icm
+         << " | p_icm=" << p_icm
          << " | ev_icm=" << ev_icm << "\n\n";
 
     for (auto &inst : instances) {
@@ -104,6 +104,7 @@ int main() {
             rows.push_back({name, {res.fitness, res.evaluations, t}});
         };
 
+        // Ejecutar algoritmos base
         { RandomSearch rs; run_and_capture("RandomSearch", rs, 10000); }
         { GreedySearch gs; run_and_capture("Greedy", gs, 0); }
         for (auto mode : { SearchStrategy::LSall, SearchStrategy::BLsmall }) {
@@ -112,8 +113,11 @@ int main() {
             run_and_capture(name, ls, 10000);
         }
 
+        // Inicializamos mejor de Práctica 2 (AGG, AGE, AM)
         Metrics bestP2{ -numeric_limits<double>::infinity(), 0, 0.0 };
         string bestP2Name;
+
+        // AGG
         for (auto op : { AGGCrossover::CON_ORDEN, AGGCrossover::SIN_ORDEN }) {
             string name = string("AGG-") + (op==AGGCrossover::CON_ORDEN?"ConOrden":"SinOrden");
             AGG agg(30,0.7,0.1); agg.setCrossoverOperator(op);
@@ -123,6 +127,7 @@ int main() {
                 bestP2Name = name;
             }
         }
+        // AGE
         for (auto strat : { CrossoverStrategy::CON_ORDEN, CrossoverStrategy::SIN_ORDEN }) {
             string name = string("AGE-") + (strat==CrossoverStrategy::CON_ORDEN?"ConOrden":"SinOrden");
             AGE age(30,0.1); age.setCrossoverStrategy(strat);
@@ -132,22 +137,42 @@ int main() {
                 bestP2Name = name;
             }
         }
+        // AM
+        { AM am1(30,0.7,0.1,0.1,AMStrategy::All,     SearchStrategy::LSall);     run_and_capture("AM-1(All)", am1, 1000);
+            if (rows.back().metrics.fitness > bestP2.fitness) {
+                bestP2 = rows.back().metrics;
+                bestP2Name = "AM-1(All)";
+            }
+        }
+        { AM am2(30,0.7,0.1,0.1,AMStrategy::RandomSubset, SearchStrategy::BLsmall); run_and_capture("AM-2(Random)", am2, 1000);
+            if (rows.back().metrics.fitness > bestP2.fitness) {
+                bestP2 = rows.back().metrics;
+                bestP2Name = "AM-2(Random)";
+            }
+        }
+        { AM am3(30,0.7,0.1,0.1,AMStrategy::BestSubset,   SearchStrategy::BLsmall); run_and_capture("AM-3(Best)", am3, 1000);
+            if (rows.back().metrics.fitness > bestP2.fitness) {
+                bestP2 = rows.back().metrics;
+                bestP2Name = "AM-3(Best)";
+            }
+        }
+
+        // Imprimir mejor de Práctica 2
         txt << "-- Mejor-P2 (" << bestP2Name << ") --\n"
             << "Best fitness: " << bestP2.fitness
             << " | evals=" << bestP2.evals
             << " | t(s)=" << fixed << setprecision(4) << bestP2.time << "\n\n";
         rows.push_back({string("Mejor-P2("+bestP2Name+")"), bestP2});
 
-        { AM am1(30,0.7,0.1,0.1,AMStrategy::All, SearchStrategy::LSall); run_and_capture("AM-1(All)", am1, 1000); }
-        { AM am2(30,0.7,0.1,0.1,AMStrategy::RandomSubset, SearchStrategy::BLsmall); run_and_capture("AM-2(Random)", am2, 1000); }
-        { AM am3(30,0.7,0.1,0.1,AMStrategy::BestSubset, SearchStrategy::BLsmall); run_and_capture("AM-3(Best)", am3, 1000); }
-        { ES es; run_and_capture("ES", es, 1000); }
-        { BMB bmb; run_and_capture("BMB", bmb, 0); }
-        { ILS ils; run_and_capture("ILS", ils, 0); }
+        // Resto de metaheurísticas
+        { ES es;      run_and_capture("ES", es, 1000); }
+        { BMB bmb;    run_and_capture("BMB", bmb, 0);   }
+        { ILS ils;    run_and_capture("ILS", ils, 0);   }
         { ILSES ilses; run_and_capture("ILS-ES", ilses, 0); }
         { GRASP g1(GRASP::Mode::NOBL); run_and_capture("GRASP-NOBL", g1, 0); }
         { GRASP g2(GRASP::Mode::SIBL); run_and_capture("GRASP-SIBL", g2, 0); }
 
+        // Ordenar por fitness y calcular posiciones
         vector<size_t> idx(rows.size());
         iota(idx.begin(), idx.end(), 0);
         sort(idx.begin(), idx.end(), [&](size_t a, size_t b) {
@@ -158,6 +183,7 @@ int main() {
         for (size_t i = 0; i < idx.size(); ++i)
             positions[idx[i]] = i + 1;
 
+        // Escribir CSV
         for (size_t i = 0; i < rows.size(); ++i) {
             csv << inst << ","
                 << rows[i].name << ","
@@ -168,7 +194,7 @@ int main() {
         }
 
         cout << "---------------------------------------------\n\n";
-        txt << "---------------------------------------------\n\n";
+        txt  << "---------------------------------------------\n\n";
     }
 
     csv.close();
