@@ -1,6 +1,7 @@
 build/
 .vscode/
 .git/
+!output/
 
 # Prerequisites
 *.d
