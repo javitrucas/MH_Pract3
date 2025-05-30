@@ -1,5 +1,4 @@
 import pandas as pd
-import re
 
 def renombrar_algoritmo(alg):
     if alg.startswith("Mejor-P2("):
@@ -57,9 +56,8 @@ df["Position"] = (
     .astype(int)
 )
 
-# —— 4) Generar y mostrar tablas —— 
+# —— 4) Generar y mostrar tablas por conjunto —— 
 for instancia, grupo in df.groupby("Instancia"):
-    # reindex en el orden fijo de algoritmos
     tabla = (
         grupo
         .set_index("AlgoritmoTabla")
@@ -68,6 +66,26 @@ for instancia, grupo in df.groupby("Instancia"):
     tabla_final = tabla[["Position", "Fitness", "Time", "Evals"]].reset_index()
     print(f"\nTabla de resultados para el conjunto {instancia}:\n")
     print(tabla_final.to_string(index=False))
-
-    # Guardar si lo deseas
     tabla_final.to_csv(f"./output/tables/{instancia}.csv", index=False)
+
+# —— 5) Tabla agregada final —— 
+tabla_agregada = (
+    df.groupby("AlgoritmoTabla")
+    .agg({
+        "Position": "mean",
+        "Time": "mean",
+        "Evals": "mean"
+    })
+    .reindex(orden_algoritmos)
+    .round(2)
+    .rename(columns={
+        "Position": "Posición Promedio",
+        "Time": "Tiempo Promedio (segs)",
+        "Evals": "Evaluaciones Promedio"
+    })
+    .reset_index()
+)
+
+print("\nTabla final de resultados (promedios entre instancias):\n")
+print(tabla_agregada.to_string(index=False))
+tabla_agregada.to_csv("./output/tables/final_summary.csv", index=False)

@@ -1,0 +1,11 @@
+AlgoritmoTabla,Posición Promedio,Tiempo Promedio (segs),Evaluaciones Promedio
+Random,6.5,0.88,10000.0
+Greedy,1.25,0.0,10.0
+BL,3.25,0.43,10000.0
+Mejor Práctica 2,3.75,1.07,30330.0
+BMB,7.0,0.1,1010.0
+ILS,7.5,0.09,1001.0
+ES,7.5,0.01,189.0
+ILS-ES,8.5,0.01,361.25
+GRASP-NOBL,1.75,0.02,10.0
+GRASP-SIBL,8.0,0.1,1000.0
